@@ -1,3 +1,5 @@
+"""Gopher application backend."""
+
 import asyncio
 
 from digi.xbee.devices import (
@@ -8,7 +10,7 @@ from digi.xbee.devices import (
     XBee64BitAddress,
 )
 from digi.xbee.packets.common import TransmitStatusPacket
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, Float
+from sqlalchemy import Boolean, Column, create_engine, Float, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 
@@ -21,13 +23,13 @@ class XBeeTransmissionTable(Base):
     __tablename__ = "xbee_transmissions"
 
     id = Column(Integer, autoincrement=True, primary_key=True)
-    sender_64_hardware = Column(String)
-    sender_16_network = Column(String)
-    rssi = Column(Integer)
-    is_broadcast = Column(Boolean)
-    data = Column(String)
-    timestamp = Column(Float)
-    # TODO: Revisit this for more data log like ACK status.
+    sender_64_hardware = Column(String, nullable=False)
+    sender_16_network = Column(String, nullable=False)
+    rssi = Column(Integer)  # Null allowed.
+    # RSSI cannot be used to recreate on a new XBeeMessage instance.
+    is_broadcast = Column(Boolean, nullable=False)
+    data = Column(String, nullable=False)
+    timestamp = Column(Float, nullable=False)
 
     def __str__(self):
         return (
@@ -46,13 +48,15 @@ class Gopher:
         self.__db_engine = None
         self.__db_session = None
         self.__xbee = None
-        self.__xbee_callbacks = None
+        self.__xbee_tx_callbacks = None
+        self.__xbee_rx_callbacks = None
 
     def start(
         self,
         db_url: str,
         xbee_port: str,
-        xbee_callbacks: list[callable],
+        xbee_tx_callbacks: list[callable],
+        xbee_rx_callbacks: list[callable],
         xbee_baud_rate: int = 115200,
     ):
         """Start up a new Gopher instance.
@@ -60,12 +64,14 @@ class Gopher:
         Args:
             db_url: SQLAlchemy database URL to use.
             xbee_port: Port to open XBee instance through, example: 'COM1'.
-            xbee_callbacks: List of function(XBeeMessage) for Rx callback.
+            xbee_tx_callbacks: List of function(XBeeMessage) for Tx callback.
+            xbee_rx_callbacks: List of function(XBeeMessage) for Rx callback.
             xbee_baud_rate: Baud rate to open XBee instance, defaults to 115200.
         """
         # Initialize objects.
         self.__xbee = XBeeDevice(port=xbee_port, baud_rate=xbee_baud_rate)
-        self.__xbee_callbacks = xbee_callbacks
+        self.__xbee_tx_callbacks = xbee_tx_callbacks
+        self.__xbee_rx_callbacks = xbee_rx_callbacks
         self.__db_engine = create_engine(db_url)
         self.__db_session = scoped_session(sessionmaker(bind=self.__db_engine))
 
@@ -86,11 +92,11 @@ class Gopher:
                 None, self.__xbee.open
             )
 
-            # TODO: Add something related to ACK response (0x8B) handling.
-
-            for callback in self.__xbee_callbacks:
-                # Add callbacks.
-                self.__xbee.add_data_received_callback(callback)
+            # Add callbacks.
+            for tx_callback in self.__xbee_tx_callbacks:
+                self.__xbee.add_transmit_status_received_callback(tx_callback)
+            for rx_callback in self.__xbee_rx_callbacks:
+                self.__xbee.add_data_received_callback(rx_callback)
 
         except Exception as e:
             raise RuntimeError(f"Failed to open XBee async: {e}")
@@ -136,17 +142,40 @@ class Gopher:
         finally:
             session.close()
 
+    def get_all_xbee_messages(self) -> list[XBeeMessage]:
+        records = self.get_db_session().query(XBeeTransmissionTable).all()
+
+        return [
+            XBeeMessage(
+                remote_node=RemoteXBeeDevice(
+                    local_xbee=self.__xbee,
+                    x64bit_addr=record.sender_64_hardware,
+                    x16bit_addr=record.sender_16_network,
+                ),
+                data=record.data.encode(),
+                broadcast=record.is_broadcast,
+                timestamp=record.timestamp,
+            )
+            for record in records
+        ]
+
     def log_xbee_message(self, xbee_message: XBeeMessage):
         """Log transmission to the specified table class.
 
         Args:
             xbee_message: XBeeMessage object.
         """
-        # TODO: Revisit this for more data log like ACK status. See table class.
+        # Handle attributes which cannot easily be used to recreate an
+        # XBeeMessage object.
+        try:
+            rssi = int(xbee_message.remote_device.get_parameter("DB")[0])
+        except AttributeError:
+            rssi = None
+
         self.__write_xbee_transmission_to_db(
             sender_64_hardware=str(xbee_message.remote_device.get_64bit_addr()),
             sender_16_network=str(xbee_message.remote_device.get_16bit_addr()),
-            rssi=int(xbee_message.remote_device.get_parameter("DB")[0]),
+            rssi=rssi,
             is_broadcast=xbee_message.is_broadcast,
             data=xbee_message.data.decode(),
             timestamp=xbee_message.timestamp,
@@ -182,11 +211,8 @@ class Gopher:
 
             # Send data to the remote device with or without acknowledgment.
             if ack:
-                status = self.__xbee.send_data(
-                    remote_device,
-                    data_bytes,
-                    # Sends ack transmit status requirement by default.
-                )
+                # Sends ack transmit status requirement by default.
+                status = self.__xbee.send_data(remote_device, data_bytes)
             else:
                 status = self.__xbee.send_data(
                     remote_device,
@@ -198,3 +224,6 @@ class Gopher:
 
         except Exception as e:
             print(f"Error during transmission: {e}")
+
+    def send_xbee_message_broadcast(self, data: str):
+        self.__xbee.send_data_broadcast(data)

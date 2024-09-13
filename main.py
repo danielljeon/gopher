@@ -4,6 +4,7 @@ import asyncio
 
 from digi.xbee.devices import XBeeMessage
 from digi.xbee.models.status import TransmitStatus
+
 from gopher import Gopher
 
 TEST_LOCAL_PORT = "COM1"
@@ -27,7 +28,8 @@ gopher_instance = Gopher()
 gopher_instance.start(
     db_url="sqlite:///xbee_log.db",
     xbee_port=TEST_LOCAL_PORT,
-    xbee_callbacks=[on_xbee_message_received],
+    xbee_rx_callbacks=[on_xbee_message_received],
+    xbee_tx_callbacks=[],
     xbee_baud_rate=115200,
 )
 
@@ -41,6 +43,7 @@ async def main():
         print(
             'Type "send ack" to send a message with ack (0x10, 0x8B response)\n'
             'Type "send" to send a message without ack\n'
+            'Type "read" to read all data on the database\n'
             'Type "exit" to end program\n'
         )  # Example trigger input message, TODO: delete later!!!
 
@@ -50,6 +53,7 @@ async def main():
 
             # Example trigger and message sending.
             example_trigger = input("> ").lower().strip()
+
             if example_trigger == "send ack":
                 status = gopher_instance.send_xbee_message(
                     destination=TEST_DESTINATION_ADDRESS,
@@ -70,6 +74,12 @@ async def main():
                     ack=False,
                 )
                 print("\tSent message (no ack)")
+
+            elif example_trigger == "read":
+                messages = gopher_instance.get_all_xbee_messages()
+                for m in messages:
+                    print(f"\t\tdb: {m}")
+
             elif example_trigger == "exit":
                 print("\tExiting programing...")
                 raise KeyboardInterrupt
