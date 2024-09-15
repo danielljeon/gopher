@@ -41,6 +41,8 @@ async def main():
         print("Started Gopher")
 
         print(
+            'Type "send broadcast" to send a message with ack (0x10, 0x8B '
+            "response)\n"
             'Type "send ack" to send a message with ack (0x10, 0x8B response)\n'
             'Type "send" to send a message without ack\n'
             'Type "read" to read all data on the database\n'
@@ -54,7 +56,12 @@ async def main():
             # Example trigger and message sending.
             example_trigger = input("> ").lower().strip()
 
-            if example_trigger == "send ack":
+            if example_trigger == "send broadcast":
+                gopher_instance.send_xbee_message_broadcast(
+                    data="Hello world with broadcast",
+                )
+
+            elif example_trigger == "send ack":
                 status = gopher_instance.send_xbee_message(
                     destination=TEST_DESTINATION_ADDRESS,
                     data="Hello world with ack",
