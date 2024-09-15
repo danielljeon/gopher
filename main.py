@@ -11,6 +11,7 @@ TEST_LOCAL_PORT = "COM1"
 TEST_DESTINATION_ADDRESS = "1234567890ABCDEF"
 
 
+# Create example Rx call back function.
 def on_xbee_message_received(xbee_message: XBeeMessage):
     gopher_instance.log_xbee_message(xbee_message)
     print(
@@ -19,12 +20,13 @@ def on_xbee_message_received(xbee_message: XBeeMessage):
     )
 
 
+# Shutdown procedure example.
 async def shutdown_example():
     await gopher_instance.shutdown()
 
 
+# Create Gopher instance and start operation.
 gopher_instance = Gopher()
-
 gopher_instance.start(
     db_url="sqlite:///xbee_log.db",
     xbee_port=TEST_LOCAL_PORT,
@@ -34,7 +36,8 @@ gopher_instance.start(
 )
 
 
-async def main():
+async def example():
+    """Example script to test basic operations."""
     await gopher_instance.open_xbee_async()
 
     try:
@@ -47,7 +50,7 @@ async def main():
             'Type "send" to send a message without ack\n'
             'Type "read" to read all data on the database\n'
             'Type "exit" to end program\n'
-        )  # Example trigger input message, TODO: delete later!!!
+        )
 
         example_trigger = None
 
@@ -99,4 +102,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(example())
