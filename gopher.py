@@ -1,6 +1,7 @@
 """Gopher application backend."""
 
 import asyncio
+from typing import Type
 
 from digi.xbee.devices import (
     RemoteXBeeDevice,
@@ -12,7 +13,7 @@ from digi.xbee.devices import (
 from digi.xbee.packets.common import TransmitStatusPacket
 from sqlalchemy import Boolean, Column, create_engine, Float, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker, scoped_session, Session
 
 Base = declarative_base()
 
@@ -44,7 +45,13 @@ class XBeeTransmissionTable(Base):
 
 
 class Gopher:
+    """Gopher backend class.
+
+    Handles all backend XBee and SQLite (SQLAlchemy) interactions.
+    """
+
     def __init__(self):
+        """Initialize internal attributes."""
         self.__db_engine = None
         self.__db_session = None
         self.__xbee = None
@@ -77,8 +84,12 @@ class Gopher:
 
         Base.metadata.create_all(self.__db_engine)  # Create all tables.
 
-    def get_db_session(self):
-        """Open DB session instance."""
+    def get_db_session(self) -> Session:
+        """Get an opened DB session instance.
+
+        Returns:
+            Session object.
+        """
         return self.__db_session()
 
     def remove_db_session(self):
@@ -119,11 +130,21 @@ class Gopher:
         self,
         sender_64_hardware: str,
         sender_16_network: str,
-        rssi: int,
+        rssi: int | None,
         is_broadcast: bool,
         data: str,
         timestamp: float,
     ):
+        """Write new record for XBee message transmissions.
+
+        Args:
+            sender_64_hardware: 64-bit hardware address of the sender.
+            sender_16_network: 16-bit network address of the sender.
+            rssi: RSSI, None allowed for reverse XBeeMessage object creation.
+            is_broadcast: True if broadcast message, else false.
+            data: Decoded payload data of the message.
+            timestamp: Timestamp of message revival.
+        """
         session = self.get_db_session()
         try:
             new_entry = XBeeTransmissionTable(
@@ -142,22 +163,33 @@ class Gopher:
         finally:
             session.close()
 
-    def get_all_xbee_messages(self) -> list[XBeeMessage]:
-        records = self.get_db_session().query(XBeeTransmissionTable).all()
+    def __record_to_xbee_message(
+        self, record: Type[XBeeTransmissionTable]
+    ) -> XBeeMessage:
+        """Convert a XBeeTransmissionTable query result record to XBeeMessage.
 
-        return [
-            XBeeMessage(
-                remote_node=RemoteXBeeDevice(
-                    local_xbee=self.__xbee,
-                    x64bit_addr=record.sender_64_hardware,
-                    x16bit_addr=record.sender_16_network,
-                ),
-                data=record.data.encode(),
-                broadcast=record.is_broadcast,
-                timestamp=record.timestamp,
-            )
-            for record in records
-        ]
+        Returns:
+            Formated XBeeMessage object.
+        """
+        return XBeeMessage(
+            remote_node=RemoteXBeeDevice(
+                local_xbee=self.__xbee,
+                x64bit_addr=record.sender_64_hardware,
+                x16bit_addr=record.sender_16_network,
+            ),
+            data=record.data.encode(),
+            broadcast=record.is_broadcast,
+            timestamp=record.timestamp,
+        )
+
+    def get_all_xbee_messages(self) -> list[XBeeMessage]:
+        """Get XBeeMessage objects of all messages on the database.
+
+        Returns:
+            List of formatted XBeeMessage objects.
+        """
+        records = self.get_db_session().query(XBeeTransmissionTable).all()
+        return [self.__record_to_xbee_message(record) for record in records]
 
     def log_xbee_message(self, xbee_message: XBeeMessage):
         """Log transmission to the specified table class.
@@ -226,4 +258,9 @@ class Gopher:
             print(f"Error during transmission: {e}")
 
     def send_xbee_message_broadcast(self, data: str):
+        """Send an XBee API framed message as broadcast.
+
+        Args:
+            data: Data to transmit.
+        """
         self.__xbee.send_data_broadcast(data)
