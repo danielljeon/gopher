@@ -11,6 +11,7 @@ from digi.xbee.devices import (
     XBee64BitAddress,
 )
 from digi.xbee.packets.common import TransmitStatusPacket
+from digi.xbee.serial import FlowControl
 from sqlalchemy import Boolean, Column, create_engine, Float, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, Session
@@ -76,7 +77,11 @@ class Gopher:
             xbee_baud_rate: Baud rate to open XBee instance, defaults to 115200.
         """
         # Initialize objects.
-        self.__xbee = XBeeDevice(port=xbee_port, baud_rate=xbee_baud_rate)
+        self.__xbee = XBeeDevice(
+            port=xbee_port,
+            baud_rate=xbee_baud_rate,
+            flow_control=FlowControl.HARDWARE_RTS_CTS,
+        )
         self.__xbee_tx_callbacks = xbee_tx_callbacks
         self.__xbee_rx_callbacks = xbee_rx_callbacks
         self.__db_engine = create_engine(db_url)
@@ -233,6 +238,8 @@ class Gopher:
             library, ACK (0x8B) messages are handled in hardware, and will not
             be processable via the callback functions. Hence, the return here.
         """
+        status = None
+
         try:
             remote_device = RemoteXBeeDevice(
                 self.__xbee, XBee64BitAddress.from_hex_string(destination)
@@ -244,12 +251,23 @@ class Gopher:
             # Send data to the remote device with or without acknowledgment.
             if ack:
                 # Sends ack transmit status requirement by default.
-                status = self.__xbee.send_data(remote_device, data_bytes)
-            else:
                 status = self.__xbee.send_data(
                     remote_device,
                     data_bytes,
-                    transmit_options=TransmitOptions.DISABLE_ACK.value,
+                    transmit_options=(
+                        TransmitOptions.DIGIMESH_MODE.value
+                        | TransmitOptions.ENABLE_APS_ENCRYPTION.value
+                    ),
+                )
+            else:
+                self.__xbee.send_data(
+                    remote_device,
+                    data_bytes,
+                    transmit_options=(
+                        TransmitOptions.DIGIMESH_MODE.value
+                        | TransmitOptions.ENABLE_APS_ENCRYPTION.value
+                        | TransmitOptions.DISABLE_ACK.value
+                    ),
                 )
 
             return status

@@ -45,8 +45,7 @@ async def example():
         print("Started Gopher")
 
         print(
-            'Type "send broadcast" to send a message with ack (0x10, 0x8B '
-            "response)\n"
+            'Type "send broadcast" to send a broadcast message\n'
             'Type "send ack" to send a message with ack (0x10, 0x8B response)\n'
             'Type "send" to send a message without ack\n'
             'Type "read" to read all data on the database\n'
