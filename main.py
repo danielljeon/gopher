@@ -4,6 +4,7 @@ import asyncio
 
 from digi.xbee.devices import XBeeMessage
 from digi.xbee.models.status import TransmitStatus
+from digi.xbee.packets.common import TransmitStatusPacket
 
 from gopher import Gopher
 
@@ -72,7 +73,10 @@ async def example():
                 )
                 print("\tSent message with ack")
 
-                if status.transmit_status == TransmitStatus.SUCCESS:
+                if (
+                    isinstance(status, TransmitStatusPacket)
+                    and status.transmit_status == TransmitStatus.SUCCESS
+                ):
                     print("\t\tSuccessful ack received")
                 else:
                     print("\t\tFailed ack")
