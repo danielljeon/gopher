@@ -13,8 +13,12 @@ from digi.xbee.devices import (
 from digi.xbee.packets.common import TransmitStatusPacket
 from digi.xbee.serial import FlowControl
 from sqlalchemy import Boolean, Column, create_engine, Float, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session, Session
+from sqlalchemy.orm import (
+    declarative_base,
+    sessionmaker,
+    scoped_session,
+    Session,
+)
 
 Base = declarative_base()
 
