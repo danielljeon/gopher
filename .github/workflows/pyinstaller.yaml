@@ -1,16 +1,21 @@
 ################################################################################
 # pyinstaller.yaml
 #
-# Compile the executable using PyInstaller via the main.spec file.
+# Compile the executable using PyInstaller via the main.spec file on Windows,
+# macOS, and Linux.
 ################################################################################
 
-name: PyInstaller
+name: PyInstaller build
 
 on: [ push, pull_request ]
 
 jobs:
-  black:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ${{ matrix.os }}  # Use the matrix to define the target OS.
+
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]  # Supported OSes.
 
     steps:
       - name: Checkout code
@@ -37,7 +42,5 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: |
-            dist/*.exe
-            ./dist
+          name: dist-${{ matrix.os }}
+          path: dist/*
