@@ -1,4 +1,5 @@
 # $ pip install -r requirements_dev.txt
 
 black~=24.8.0
+pyinstaller~=6.11.0
 pyqt6-tools~=6.4
