@@ -8,8 +8,10 @@ from digi.xbee.packets.common import TransmitStatusPacket
 
 from gopher import Gopher
 
-TEST_LOCAL_PORT = "COM1"
-TEST_DESTINATION_ADDRESS = "1234567890ABCDEF"
+startup_status = False
+
+# Create Gopher instance and start operation.
+gopher_instance = Gopher()
 
 
 # Create example Rx call back function.
@@ -26,23 +28,49 @@ async def shutdown_example():
     await gopher_instance.shutdown()
 
 
-# Create Gopher instance and start operation.
-gopher_instance = Gopher()
-gopher_instance.start(
-    db_url="sqlite:///xbee_log.db",
-    xbee_port=TEST_LOCAL_PORT,
-    xbee_rx_callbacks=[on_xbee_message_received],
-    xbee_tx_callbacks=[],
-    xbee_baud_rate=115200,
-)
+async def attempt_startup(com_port_number: int):
+    global startup_status
+    if not startup_status:
+        try:
+            print(f"Attempting startup with COM{com_port_number} ... ", end="")
+
+            gopher_instance.start(
+                db_url="sqlite:///xbee_log.db",
+                xbee_port=f"COM{com_port_number}",
+                xbee_rx_callbacks=[on_xbee_message_received],
+                xbee_tx_callbacks=[],
+                xbee_baud_rate=115200,
+            )
+            await gopher_instance.open_xbee_async()
+            await gopher_instance.shutdown()
+
+            print("Success")
+            startup_status = True
+
+        except RuntimeError:
+            print("Fail")
 
 
-async def example():
-    """Example script to test basic operations."""
+async def establish_com_port():
+    for i in range(20):
+        await attempt_startup(i + 1)
+
+
+async def example(destination_address: str):
+    """Example script to test basic operations.
+
+    Args:
+        destination_address: 64-bit hex destination address.
+            Example: "1234567890ABCDEF".
+
+    Returns:
+
+    """
     await gopher_instance.open_xbee_async()
 
     try:
         print("Started Gopher")
+        print()
 
         print(
             'Type "send broadcast" to send a broadcast message\n'
@@ -66,7 +94,7 @@ async def example():
 
             elif example_trigger == "send ack":
                 status = gopher_instance.send_xbee_message(
-                    destination=TEST_DESTINATION_ADDRESS,
+                    destination=destination_address,
                     data="Hello world with ack",
                     ack=True,
                 )
@@ -82,7 +110,7 @@ async def example():
 
             elif example_trigger == "send":
                 gopher_instance.send_xbee_message(
-                    destination=TEST_DESTINATION_ADDRESS,
+                    destination=destination_address,
                     data="Hello world",
                     ack=False,
                 )
@@ -105,4 +133,12 @@ async def example():
 
 
 if __name__ == "__main__":
-    asyncio.run(example())
+    asyncio.run(establish_com_port())
+
+    if startup_status:
+        print()  # Line spacer.
+        print('Type in 64-bit destination address, example: "1234567890ABCDEF"')
+        destination = input("> ").lower().strip()
+
+        print()  # Line spacer.
+        asyncio.run(example(destination_address=destination))
