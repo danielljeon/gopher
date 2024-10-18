@@ -1,0 +1,41 @@
+################################################################################
+# pyinstaller.yaml
+#
+# Compile the executable using PyInstaller via the main.spec file.
+################################################################################
+
+name: PyInstaller
+
+on: [ push, pull_request ]
+
+jobs:
+  black:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run PyInstaller main.spec
+        run: |
+          pyinstaller --clean --noconfirm main.spec
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: ./dist
