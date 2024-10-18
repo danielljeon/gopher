@@ -4,7 +4,7 @@
 # Run pytest and pytest coverage.
 ################################################################################
 
-name: Run pytest and Generate Coverage Report
+name: Run pytest
 
 on: [ push, pull_request ]
 
