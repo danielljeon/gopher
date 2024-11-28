@@ -1,6 +1,8 @@
-"""Gopher application backend."""
+"""Gopher application backend.
+"""
 
 import asyncio
+from functools import partial
 from typing import Type
 
 from digi.xbee.devices import (
@@ -53,13 +55,32 @@ class Gopher:
     """Gopher backend class.
 
     Handles all backend XBee and SQLite (SQLAlchemy) interactions.
+
+    Example:
+        def tx_callback_with_params(message, param1, param2):
+            print(f"TX Callback: {message}, Param1: {param1}, Param2: {param2}")
+
+        def rx_callback_with_params(message, param1, param2):
+            print(f"RX Callback: {message}, Param1: {param1}, Param2: {param2}")
+
+        gopher = Gopher()
+        gopher.start(
+            db_url="sqlite:///example.db",
+            xbee_port="COM1",
+            xbee_tx_callbacks=[
+                (tx_callback_with_params, ["param1_value"], {"param2": "param2_value"})
+            ],
+            xbee_rx_callbacks=[
+                (rx_callback_with_params, ["param1_value"], {"param2": "param2_value"})
+            ],
+        )
     """
 
     def __init__(self):
         """Initialize internal attributes."""
         self.__db_engine = None
         self.__db_session = None
-        self.__xbee = None
+        self.xbee = None
         self.__xbee_tx_callbacks = None
         self.__xbee_rx_callbacks = None
 
@@ -67,8 +88,8 @@ class Gopher:
         self,
         db_url: str,
         xbee_port: str,
-        xbee_tx_callbacks: list[callable],
-        xbee_rx_callbacks: list[callable],
+        xbee_tx_callbacks: list[tuple[callable, list, dict]],
+        xbee_rx_callbacks: list[tuple[callable, list, dict]],
         xbee_baud_rate: int = 115200,
     ):
         """Start up a new Gopher instance.
@@ -76,12 +97,12 @@ class Gopher:
         Args:
             db_url: SQLAlchemy database URL to use.
             xbee_port: Port to open XBee instance through, example: 'COM1'.
-            xbee_tx_callbacks: List of function(XBeeMessage) for Tx callback.
-            xbee_rx_callbacks: List of function(XBeeMessage) for Rx callback.
+            xbee_tx_callbacks: List of tuples (function, args, kwargs) for Tx callback.
+            xbee_rx_callbacks: List of tuples (function, args, kwargs) for Rx callback.
             xbee_baud_rate: Baud rate to open XBee instance, defaults to 115200.
         """
         # Initialize objects.
-        self.__xbee = XBeeDevice(
+        self.xbee = XBeeDevice(
             port=xbee_port,
             baud_rate=xbee_baud_rate,
             flow_control=FlowControl.HARDWARE_RTS_CTS,
@@ -109,14 +130,18 @@ class Gopher:
         """Open XBee instance."""
         try:
             await asyncio.get_running_loop().run_in_executor(
-                None, self.__xbee.open
+                None, self.xbee.open
             )
 
-            # Add callbacks.
-            for tx_callback in self.__xbee_tx_callbacks:
-                self.__xbee.add_transmit_status_received_callback(tx_callback)
-            for rx_callback in self.__xbee_rx_callbacks:
-                self.__xbee.add_data_received_callback(rx_callback)
+            # Add callbacks with their parameters.
+            for callback, args, kwargs in self.__xbee_tx_callbacks:
+                self.xbee.add_transmit_status_received_callback(
+                    partial(callback, *args, **kwargs)
+                )
+            for callback, args, kwargs in self.__xbee_rx_callbacks:
+                self.xbee.add_data_received_callback(
+                    partial(callback, *args, **kwargs)
+                )
 
         except Exception as e:
             raise RuntimeError(f"Failed to open XBee async: {e}")
@@ -125,7 +150,7 @@ class Gopher:
         """Close XBee instance."""
         try:
             await asyncio.get_running_loop().run_in_executor(
-                None, self.__xbee.close
+                None, self.xbee.close
             )
         except Exception as e:
             raise RuntimeError(f"Failed to close XBee async: {e}")
@@ -182,7 +207,7 @@ class Gopher:
         """
         return XBeeMessage(
             remote_node=RemoteXBeeDevice(
-                local_xbee=self.__xbee,
+                local_xbee=self.xbee,
                 x64bit_addr=record.sender_64_hardware,
                 x16bit_addr=record.sender_16_network,
             ),
@@ -246,7 +271,7 @@ class Gopher:
 
         try:
             remote_device = RemoteXBeeDevice(
-                self.__xbee, XBee64BitAddress.from_hex_string(destination)
+                self.xbee, XBee64BitAddress.from_hex_string(destination)
             )
 
             # Ensure data is properly encoded before transmission.
@@ -255,7 +280,7 @@ class Gopher:
             # Send data to the remote device with or without acknowledgment.
             if ack:
                 # Sends ack transmit status requirement by default.
-                status = self.__xbee.send_data(
+                status = self.xbee.send_data(
                     remote_device,
                     data_bytes,
                     transmit_options=(
@@ -264,7 +289,7 @@ class Gopher:
                     ),
                 )
             else:
-                self.__xbee.send_data(
+                self.xbee.send_data(
                     remote_device,
                     data_bytes,
                     transmit_options=(
@@ -285,4 +310,4 @@ class Gopher:
         Args:
             data: Data to transmit.
         """
-        self.__xbee.send_data_broadcast(data)
+        self.xbee.send_data_broadcast(data)
