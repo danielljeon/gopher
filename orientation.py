@@ -1,30 +1,17 @@
+"""Orientation related GUI and callbacks."""
+
 import queue
 import sys
-import threading
 
 import numpy as np
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from digi.xbee.devices import XBeeMessage
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from scipy.spatial.transform import Rotation
 
-from gopher import *
+from gopher import Gopher
 from nerve import extract_value
-
-
-def quaternion_queue_callback(
-    w: float, x: float, y: float, z: float, data_queue: queue.Queue
-):
-    """Add quaterion orientation to data queue callback.
-
-    Args:
-        w: Real component of quaterion.
-        x: i component of quaterion.
-        y: j component of quaterion.
-        z: k component of quaterion.
-        data_queue: Pointer for queue to add to.
-    """
-    data_queue.put((w, x, y, z))
 
 
 class QuaternionVisualizer(QMainWindow):
@@ -124,70 +111,32 @@ class QuaternionVisualizer(QMainWindow):
                 labeltop=False,
             )
             self.ax.text2D(
-                0.05,
-                0.95,
-                f"Quaternion:\nW={w:.2f}\nX={x:.2f}\nY={y:.2f}\nZ={z:.2f}",
+                0,
+                0.8,
+                f"Quaternion:\nW={w:.3f}\nX={x:.3f}\nY={y:.3f}\nZ={z:.3f}",
                 transform=self.ax.transAxes,
-                fontsize=10,
+                fontsize=12,
                 color="black",
             )
 
             self.canvas.draw()
 
+    def quaternion_queue_callback(self, w: float, x: float, y: float, z: float):
+        """Add quaterion orientation to data queue callback.
 
-def main():
-    app = QApplication(sys.argv)
-    data_queue = queue.Queue()
-
-    # Create and show the visualizer.
-    visualizer = QuaternionVisualizer(data_queue)
-    visualizer.show()
-    sys.exit(app.exec())
-
-
-def simulated_main():
-    def __simulated_callback(data_queue: queue.Queue):
-        import time
-
-        while True:
-            # Simulate incoming quaternion data (real, i, j, k)
-            w = np.random.random()
-            x = np.random.random()
-            y = np.random.random()
-            z = np.random.random()
-            quaternion_queue_callback(w, x, y, z, data_queue)
-            time.sleep(0.1)
-
-    app = QApplication(sys.argv)
-    data_queue = queue.Queue()
-
-    # Start the hardware callback thread
-    callback_thread = threading.Thread(
-        target=__simulated_callback, args=(data_queue,), daemon=True
-    )
-    callback_thread.start()
-
-    # Create and show the visualizer.
-    visualizer = QuaternionVisualizer(data_queue)
-    visualizer.show()
-    sys.exit(app.exec())
+        Args:
+            w: Real component of quaterion.
+            x: i component of quaterion.
+            y: j component of quaterion.
+            z: k component of quaterion.
+        """
+        self.data_queue.put((w, x, y, z))
 
 
-################################################################################
-
-# Create Gopher instance and start operation.
-gopher_instance = Gopher()
-startup_status = False
-
-
-def on_xbee_message_received(xbee_message: XBeeMessage, data_queue):
+def orientation_rx_callback(
+    xbee_message: XBeeMessage, quaterion_visualizer: QuaternionVisualizer
+):
     message = xbee_message.data.decode()
-
-    print(
-        f"Message received from {xbee_message.remote_device.get_64bit_addr()}: "
-        f"{message}"
-    )
-
     if ",k=" in message:
         w = extract_value(message, "w")
         x = extract_value(message, "i")
@@ -198,72 +147,25 @@ def on_xbee_message_received(xbee_message: XBeeMessage, data_queue):
             x = eval(x)
             y = eval(y)
             z = eval(z)
-            quaternion_queue_callback(w, x, y, z, data_queue=data_queue)
+            quaterion_visualizer.quaternion_queue_callback(w, x, y, z)
 
 
-async def xbee_test():
+async def run_orientation_gui(gopher_instance: Gopher):
     # Initialize Gopher instance and open the XBee device
     await gopher_instance.open_xbee_async()
 
-    # Create the application and data queue
+    # Create the application and data queue.
     app = QApplication(sys.argv)
     data_queue = queue.Queue()
 
-    # Add RX callback for handling incoming messages
+    # Create the visualizer.
+    visualizer = QuaternionVisualizer(data_queue)
+
+    # Add RX callback for handling incoming messages.
     gopher_instance.xbee.add_data_received_callback(
-        lambda xbee_message: on_xbee_message_received(xbee_message, data_queue)
+        lambda xbee_message: orientation_rx_callback(xbee_message, visualizer)
     )
 
-    # Create and show the visualizer
-    visualizer = QuaternionVisualizer(data_queue)
+    # Start visualizer.
     visualizer.show()
     sys.exit(app.exec())
-
-
-# Shutdown procedure example.
-async def shutdown_example():
-    await gopher_instance.shutdown()
-
-
-async def attempt_startup(com_port_number: int):
-    global startup_status
-    if not startup_status:
-        try:
-            print(f"Attempting startup with COM{com_port_number} ... ", end="")
-
-            gopher_instance.start(
-                db_url="sqlite:///xbee_log.db",
-                xbee_port=f"COM{com_port_number}",
-                xbee_tx_callbacks=[],
-                xbee_rx_callbacks=[
-                    (
-                        on_xbee_message_received,
-                        [],
-                        {"data_queue": queue.Queue()},
-                    )
-                ],
-                xbee_baud_rate=115200,
-            )
-            await gopher_instance.open_xbee_async()
-            await gopher_instance.shutdown()
-
-            print("Success")
-            startup_status = True
-
-        except RuntimeError:
-            print("Fail")
-
-
-async def establish_com_port():
-    for i in range(20):
-        await attempt_startup(i + 1)
-
-
-################################################################################
-
-if __name__ == "__main__":
-    # main()
-
-    asyncio.run(establish_com_port())
-    if startup_status:
-        asyncio.run(xbee_test())
