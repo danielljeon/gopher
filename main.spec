@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['main.py', 'gopher.py'],
+    ['main.py'],
     pathex=[],
     binaries=[],
     datas=[],
