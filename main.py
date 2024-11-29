@@ -1,139 +1,96 @@
-"""Main module."""
+import sys
 
-import asyncio
+from PySide6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QVBoxLayout,
+    QPushButton,
+    QWidget,
+)
 
-from digi.xbee.devices import XBeeMessage
-from digi.xbee.models.status import TransmitStatus
-from digi.xbee.packets.common import TransmitStatusPacket
-
-from gopher import Gopher
-from orientation import run_orientation_gui
-
-# Create Gopher instance and start operation.
-gopher_instance = Gopher()
-startup_status = False
-
-
-# Create example Rx call back function.
-def print_console_rx_callback(xbee_message: XBeeMessage):
-    gopher_instance.log_xbee_message(xbee_message)
-    print(
-        f"Message received from {xbee_message.remote_device.get_64bit_addr()}: "
-        f"{xbee_message.data.decode()}"
-    )
+from gopher import Gopher, BackendWorker, GopherThread
+from widgets.line_graph import LineGraphWidget
+from widgets.orientation import OrientationWidget
 
 
-# Shutdown procedure example.
-async def shutdown_example():
-    await gopher_instance.shutdown()
+class MainWindow(QMainWindow):
+    def __init__(self, gopher_instance: Gopher):
+        super().__init__()
+        self.setWindowTitle("Multi-Sensor App")
+        self.setGeometry(100, 100, 800, 600)
 
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        self.layout = QVBoxLayout(central_widget)
 
-async def attempt_startup(com_port_number: int):
-    global startup_status
-    if not startup_status:
-        try:
-            print(f"Attempting startup with COM{com_port_number} ... ", end="")
+        self.orientation_button = QPushButton("Open Orientation Widget")
+        self.temperature_graph_button = QPushButton(
+            "Open Temperature Graph Widget"
+        )
+        self.layout.addWidget(self.orientation_button)
+        self.layout.addWidget(self.temperature_graph_button)
 
-            gopher_instance.start(
-                db_url="sqlite:///xbee_log.db",
-                xbee_port=f"COM{com_port_number}",
-                xbee_tx_callbacks=[],
-                xbee_rx_callbacks=[],
-                xbee_baud_rate=115200,
-            )
-            await gopher_instance.open_xbee_async()
-            await gopher_instance.shutdown()
+        self.gopher = gopher_instance
+        self.backend_worker = BackendWorker(self.gopher)
+        self.backend_thread = GopherThread(self.backend_worker)
+        self.backend_worker.moveToThread(self.backend_thread)
 
-            print("Success")
-            startup_status = True
+        self.orientation_widget = None
+        self.graph_widget = None
 
-        except RuntimeError:
-            print("Fail")
-
-
-async def establish_com_port():
-    for i in range(20):
-        await attempt_startup(i + 1)
-
-
-async def example(destination_address: str):
-    """Example script to test basic operations.
-
-    Args:
-        destination_address: 64-bit hex destination address.
-            Example: "1234567890ABCDEF".
-
-    Returns:
-
-    """
-    await gopher_instance.open_xbee_async()
-
-    try:
-        print("Started Gopher")
-        print()
-
-        print(
-            'Type "send broadcast" to send a broadcast message\n'
-            'Type "send ack" to send a message with ack (0x10, 0x8B response)\n'
-            'Type "send" to send a message without ack\n'
-            'Type "read" to read all data on the database\n'
-            'Type "exit" to end program\n'
+        # Connect buttons
+        self.orientation_button.clicked.connect(
+            self.open_orientation_visualizer
+        )
+        self.temperature_graph_button.clicked.connect(
+            self.open_temperature_graph
         )
 
-        example_trigger = None
+        # Connect backend signals
+        self.backend_worker.sensor_data_signal.connect(self.handle_sensor_data)
 
-        while example_trigger != "exit":
+        # Start backend thread
+        self.backend_thread.start()
 
-            # Example trigger and message sending.
-            example_trigger = input("> ").lower().strip()
+    def handle_sensor_data(self, sensor_data):
+        """Process incoming sensor data."""
+        if "orientation" in sensor_data and self.orientation_widget:
+            self.orientation_widget.update_orientation(
+                **sensor_data["orientation"]
+            )
 
-            if example_trigger == "send broadcast":
-                gopher_instance.send_xbee_message_broadcast(
-                    data="Hello world with broadcast",
-                )
+        if "temperature" in sensor_data and self.graph_widget:
+            self.graph_widget.add_data(sensor_data["temperature"])
 
-            elif example_trigger == "send ack":
-                status = gopher_instance.send_xbee_message(
-                    destination=destination_address,
-                    data="Hello world with ack",
-                    ack=True,
-                )
-                print("\tSent message with ack")
+    def open_orientation_visualizer(self):
+        """Open 3D orientation visualizer."""
+        self.orientation_widget = OrientationWidget("3D Orientation")
+        self.orientation_widget.show()
 
-                if (
-                    isinstance(status, TransmitStatusPacket)
-                    and status.transmit_status == TransmitStatus.SUCCESS
-                ):
-                    print("\t\tSuccessful ack received")
-                else:
-                    print("\t\tFailed ack")
+    def open_temperature_graph(self):
+        """Open temperature graph widget."""
+        self.graph_widget = LineGraphWidget(
+            "Temperature Over Time", "temperature"
+        )
+        self.graph_widget.show()
 
-            elif example_trigger == "send":
-                gopher_instance.send_xbee_message(
-                    destination=destination_address,
-                    data="Hello world",
-                    ack=False,
-                )
-                print("\tSent message (no ack)")
-
-            elif example_trigger == "read":
-                messages = gopher_instance.get_all_xbee_messages()
-                for m in messages:
-                    print(f"\t\tdb: {m}")
-
-            elif example_trigger == "exit":
-                print("\tExiting programing...")
-                raise KeyboardInterrupt
-
-            await asyncio.sleep(1)  # Run async indefinitely.
-
-    except KeyboardInterrupt:
-        print("\tGopher Shutdown")
-        await gopher_instance.shutdown()
+    def closeEvent(self, event):
+        """Ensure backend thread stops when the application is closed."""
+        self.backend_worker.stop_worker()
+        self.backend_thread.quit()
+        self.backend_thread.wait()
+        super().closeEvent(event)
 
 
 if __name__ == "__main__":
-    asyncio.run(establish_com_port())
+    app = QApplication(sys.argv)
 
-    if startup_status:
-        asyncio.run(run_orientation_gui(gopher_instance))
+    # Initialize Gopher and backend
+    gopher = Gopher()
+    gopher.start(db_url="sqlite:///xbee_log.db", xbee_port="COM3")
+
+    # Initialize the main window
+    window = MainWindow(gopher)
+    window.show()
+
+    sys.exit(app.exec())
