@@ -7,15 +7,15 @@ from digi.xbee.models.status import TransmitStatus
 from digi.xbee.packets.common import TransmitStatusPacket
 
 from gopher import Gopher
-
-startup_status = False
+from orientation import run_orientation_gui
 
 # Create Gopher instance and start operation.
 gopher_instance = Gopher()
+startup_status = False
 
 
 # Create example Rx call back function.
-def on_xbee_message_received(xbee_message: XBeeMessage):
+def print_console_rx_callback(xbee_message: XBeeMessage):
     gopher_instance.log_xbee_message(xbee_message)
     print(
         f"Message received from {xbee_message.remote_device.get_64bit_addr()}: "
@@ -37,8 +37,8 @@ async def attempt_startup(com_port_number: int):
             gopher_instance.start(
                 db_url="sqlite:///xbee_log.db",
                 xbee_port=f"COM{com_port_number}",
-                xbee_rx_callbacks=[on_xbee_message_received],
                 xbee_tx_callbacks=[],
+                xbee_rx_callbacks=[],
                 xbee_baud_rate=115200,
             )
             await gopher_instance.open_xbee_async()
@@ -136,9 +136,4 @@ if __name__ == "__main__":
     asyncio.run(establish_com_port())
 
     if startup_status:
-        print()  # Line spacer.
-        print('Type in 64-bit destination address, example: "1234567890ABCDEF"')
-        destination = input("> ").lower().strip()
-
-        print()  # Line spacer.
-        asyncio.run(example(destination_address=destination))
+        asyncio.run(run_orientation_gui(gopher_instance))
