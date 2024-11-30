@@ -10,30 +10,30 @@ class OrientationWidget(QWidget):
     def __init__(self, title):
         super().__init__()
         self.data_queue = queue.Queue()
-        self.timer = self.startTimer(50)  # Update interval in ms
+        self.timer = self.startTimer(50)  # Update interval in ms.
 
-        # Set up the matplotlib figure and canvas
+        # Set up the matplotlib figure and canvas.
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
         self.ax = self.figure.add_subplot(111, projection="3d")
+        self.title = title
 
-        # Set up the layout
+        # Set up the layout.
         layout = QVBoxLayout(self)
         layout.addWidget(self.canvas)
         self.ax.set_xlim([-1, 1])
         self.ax.set_ylim([-1, 1])
         self.ax.set_zlim([-1, 1])
-        self.ax.set_title(title)
 
     def timerEvent(self, event):
         if not self.data_queue.empty():
             w, x, y, z = self.data_queue.get()
 
-            # Normalize quaternion
+            # Normalize quaternion.
             norm = (w**2 + x**2 + y**2 + z**2) ** 0.5
             w, x, y, z = w / norm, x / norm, y / norm, z / norm
 
-            # Convert quaternion to rotation matrix
+            # Convert quaternion to rotation matrix.
             rotation = Rotation.from_quat([x, y, z, w]).as_matrix()
             origin = [0, 0, 0]
             x_axis = rotation @ [1, 0, 0]
@@ -86,6 +86,7 @@ class OrientationWidget(QWidget):
                 fontsize=12,
                 color="black",
             )
+            self.ax.set_title(self.title)
 
             self.canvas.draw()
 
