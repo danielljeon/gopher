@@ -24,7 +24,7 @@ class LineGraphWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self.canvas)
 
-        self.timer = self.startTimer(100)  # Update interval in ms.
+        self.timer = self.startTimer(10)  # Update interval in ms.
 
     def timerEvent(self, event):
         """Fetch data from the queue and update the graph."""
