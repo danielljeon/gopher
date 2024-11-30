@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from gopher import Gopher, BackendWorker, GopherThread
 from widgets.line_graph import LineGraphWidget
 from widgets.orientation import OrientationWidget
+from widgets.orientation_model import OrientationModelWidget
 
 
 class MainWindow(QMainWindow):
@@ -23,33 +24,46 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         self.layout = QVBoxLayout(central_widget)
 
+        # Create widget buttons.
         self.orientation_button = QPushButton("Open Orientation Widget")
         self.temperature_graph_button = QPushButton(
             "Open Temperature Graph Widget"
         )
+        self.orientation_model_button = QPushButton(
+            "Open 3D Model Orientation Widget"
+        )
+
+        # Add widget buttons to the layout.
         self.layout.addWidget(self.orientation_button)
         self.layout.addWidget(self.temperature_graph_button)
+        self.layout.addWidget(self.orientation_model_button)
 
+        # Initialize backend services.
         self.gopher = gopher_instance
         self.backend_worker = BackendWorker(self.gopher)
         self.backend_thread = GopherThread(self.backend_worker)
         self.backend_worker.moveToThread(self.backend_thread)
 
+        # Initialize widgets to None.
         self.orientation_widget = None
         self.graph_widget = None
+        self.orientation_model_widget = None
 
-        # Connect buttons
+        # Connect buttons.
         self.orientation_button.clicked.connect(
             self.open_orientation_visualizer
         )
         self.temperature_graph_button.clicked.connect(
             self.open_temperature_graph
         )
+        self.orientation_model_button.clicked.connect(
+            self.open_orientation_model
+        )
 
-        # Connect backend signals
+        # Connect backend signals.
         self.backend_worker.sensor_data_signal.connect(self.handle_sensor_data)
 
-        # Start backend thread
+        # Start backend thread.
         self.backend_thread.start()
 
     def handle_sensor_data(self, sensor_data):
@@ -58,7 +72,10 @@ class MainWindow(QMainWindow):
             self.orientation_widget.update_orientation(
                 **sensor_data["orientation"]
             )
-
+        if "orientation" in sensor_data and self.orientation_model_widget:
+            self.orientation_model_widget.update_orientation(
+                **sensor_data["orientation"]
+            )
         if "temperature" in sensor_data and self.graph_widget:
             self.graph_widget.add_data(sensor_data["temperature"])
 
@@ -73,6 +90,14 @@ class MainWindow(QMainWindow):
             "Temperature Over Time", "temperature"
         )
         self.graph_widget.show()
+
+    def open_orientation_model(self):
+        """Open 3D orientation model widget."""
+        self.orientation_model_widget = OrientationModelWidget(
+            "", "Calibration Cube.stl"
+        )
+        self.orientation_model_widget.show()
+        self.orientation_model_widget.resize(800, 600)
 
     def closeEvent(self, event):
         """Ensure backend thread stops when the application is closed."""
