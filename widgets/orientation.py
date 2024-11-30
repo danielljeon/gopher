@@ -10,7 +10,7 @@ class OrientationWidget(QWidget):
     def __init__(self, title):
         super().__init__()
         self.data_queue = queue.Queue()
-        self.timer = self.startTimer(50)  # Update interval in ms.
+        self.timer = self.startTimer(10)  # Update interval in ms.
 
         # Set up the matplotlib figure and canvas.
         self.figure = Figure()
