@@ -1,4 +1,3 @@
-import queue
 import time
 
 import matplotlib.ticker as mticker
@@ -6,12 +5,14 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
+from gopher import MaxSizeQueue
+
 
 class LineGraphWidget(QWidget):
     def __init__(self, title, data_key):
         super().__init__()
         self.data_key = data_key
-        self.data_queue = queue.Queue()
+        self.data_queue = MaxSizeQueue(maxsize=50)
         self.data_points = []  # Stores tuples: (timestamp, value).
 
         # Set up the matplotlib figure and canvas.
