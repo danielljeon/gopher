@@ -13,6 +13,17 @@ from nerve import extract_value
 Base = declarative_base()
 
 
+class MaxSizeQueue(Queue):
+    def __init__(self, maxsize=0):
+        super().__init__(maxsize)
+
+    def put(self, item, block=True, timeout=None):
+        # If the queue is full, remove the oldest item.
+        if self.full():
+            self.get_nowait()
+        super().put(item, block, timeout)
+
+
 class Gopher:
     """Gopher backend class for XBee and database interactions."""
 
@@ -51,9 +62,9 @@ class BackendWorker(QObject):
         self.gopher = gopher
         self.running = True
         self.data_queues = {
-            "temperature": Queue(),
-            "pressure": Queue(),
-            "orientation": Queue(),
+            "temperature": MaxSizeQueue(maxsize=50),
+            "pressure": MaxSizeQueue(maxsize=50),
+            "orientation": MaxSizeQueue(maxsize=50),
         }
 
     def start_worker(self):

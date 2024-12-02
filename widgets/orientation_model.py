@@ -1,5 +1,3 @@
-import queue
-
 import numpy as np
 from PySide6.Qt3DCore import Qt3DCore
 from PySide6.Qt3DExtras import Qt3DExtras
@@ -8,13 +6,15 @@ from PySide6.QtGui import QVector3D, QColor, QQuaternion
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 from scipy.spatial.transform import Rotation
 
+from gopher import MaxSizeQueue
+
 
 class OrientationModelWidget(QWidget):
     def __init__(self, title, model_file_path):
         super().__init__()
         self.reference_quaternion = None  # Store the reference quaternion.
 
-        self.data_queue = queue.Queue()
+        self.data_queue = MaxSizeQueue(maxsize=50)
         self.timer = self.startTimer(1)  # Update interval in ms
 
         self.title = title
