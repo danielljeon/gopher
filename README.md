@@ -26,6 +26,10 @@ Ground station for Nerve controller system.
 
 ## 1 Overview
 
+![gopher.drawio.png](docs/gopher.drawio.png)
+
+> Drawio file here: [gopher.drawio](docs/gopher.drawio)
+
 ## 2 Development
 
 ### 2.1 GitHub Actions Workflows
