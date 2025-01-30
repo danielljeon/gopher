@@ -1,5 +1,4 @@
-"""Nerve firmware specific code.
-"""
+"""Nerve firmware specific code."""
 
 
 def extract_value(
