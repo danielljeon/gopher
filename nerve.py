@@ -21,6 +21,10 @@ def extract_value(
         >>> extract_value(data_string="test=123", key="test")
         '123'
         >>> extract_value(data_string="tes=123", key="test")
+        >>> extract_value(data_string="test=123_12", key="test")
+        '123_12'
+        >>> extract_value(data_string="test=123", key="test")
+        '123'
         >>> extract_value(data_string="a=1,b=2,c=3", key="b")
         '2'
         >>> extract_value( \
