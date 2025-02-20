@@ -65,6 +65,8 @@ class BackendWorker(QObject):
             "temperature": MaxSizeQueue(maxsize=50),
             "pressure": MaxSizeQueue(maxsize=50),
             "orientation": MaxSizeQueue(maxsize=50),
+            "gps_altitude": MaxSizeQueue(maxsize=50),
+            "gps_coordinates": MaxSizeQueue(maxsize=50),
         }
 
     def start_worker(self):
@@ -99,6 +101,22 @@ class BackendWorker(QObject):
                 self.data_queues["pressure"].put(pressure)
                 sensor_data["temperature"] = temperature
                 sensor_data["pressure"] = pressure
+
+            if ",lat" in data:
+                altitude = extract_value(data, "altitude")
+                self.data_queues["gps_altitude"].put(altitude)
+                sensor_data["gps_altitude"] = altitude
+
+                lat, lat_dir = extract_value(data, "lat").split("_")
+                long, long_dir = extract_value(data, "long").split("_")
+                gps_coordinates = {
+                    "latitude": lat,
+                    "latitude_direction": lat_dir,
+                    "longitude": long,
+                    "longitude_direction": long_dir,
+                }
+                self.data_queues["gps_coordinates"].put(gps_coordinates)
+                sensor_data["gps_coordinates"] = gps_coordinates
 
             if sensor_data:
                 self.sensor_data_signal.emit(sensor_data)
