@@ -15,9 +15,9 @@ Ground station for Nerve controller system.
   * [1 Overview](#1-overview)
   * [2 Development](#2-development)
     * [2.1 GitHub Actions Workflows](#21-github-actions-workflows)
-      * [2.3 black](#23-black)
-      * [2.3 pytest](#23-pytest)
-      * [2.3 pyinstaller](#23-pyinstaller)
+      * [2.1.1 black](#211-black)
+      * [2.1.2 pytest](#212-pytest)
+      * [2.1.3 pyinstaller](#213-pyinstaller)
 <!-- TOC -->
 
 </details>
@@ -34,15 +34,15 @@ Ground station for Nerve controller system.
 
 ### 2.1 GitHub Actions Workflows
 
-#### 2.3 black
+#### 2.1.1 black
 
 [black_formatter.yaml](.github/workflows/black_formatter.yaml)
 
-#### 2.3 pytest
+#### 2.1.2 pytest
 
 [pytest.yaml](.github/workflows/pytest.yaml)
 
-#### 2.3 pyinstaller
+#### 2.1.3 pyinstaller
 
 PyInstaller macOS, Windows, Linux `main.spec` builds workflow is saved
 in [docs/pyinstaller.yaml](docs/pyinstaller.yaml) for reference.
