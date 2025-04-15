@@ -38,6 +38,9 @@ Ground station for Nerve controller system.
 |:-------------------------------------------------------------:|:-------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|
 | ![v0_1_0-alpha_home.png](docs/pictures/v0_1_0-alpha_home.png) | ![v0_1_0-alpha_quaternion.png](docs/pictures/v0_1_0-alpha_quaternion.png) | ![v0_1_0-alpha_quaternion_model.png](docs/pictures/v0_1_0-alpha_quaternion_model.png) |
 
+- Pictures and GIF animation show v0.1.0-alpha concept prototype with
+  [nerve_ada_board](https://github.com/danielljeon/nerve_ada_board).
+
 ---
 
 ## 2 Development
@@ -72,7 +75,7 @@ The badge markdown would be as follows:
 
 ### 3.1 v0.1.0-alpha
 
-Concept prototype release.
+Pre-release concept prototype.
 
 - **Python desktop application** (exe package-able).
 - SQLite XBee message database logging.
