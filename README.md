@@ -25,15 +25,6 @@ Ground station for Nerve controller system.
 
 > Drawio file here: [gopher.drawio](docs/gopher.drawio)
 
-![v0_1_0-alpha_quaternion_demo.gif](docs/pictures/v0_1_0-alpha_quaternion_demo.gif)
-
-|                          Main Screen                          |                            Quaternion Display                             |                               Quaternion Model Display                                |
-|:-------------------------------------------------------------:|:-------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|
-| ![v0_1_0-alpha_home.png](docs/pictures/v0_1_0-alpha_home.png) | ![v0_1_0-alpha_quaternion.png](docs/pictures/v0_1_0-alpha_quaternion.png) | ![v0_1_0-alpha_quaternion_model.png](docs/pictures/v0_1_0-alpha_quaternion_model.png) |
-
-- Pictures and GIF animation show v0.1.0-alpha concept prototype with
-  [nerve_ada_board](https://github.com/danielljeon/nerve_ada_board).
-
 ---
 
 ## 2 Development
@@ -54,3 +45,12 @@ Pre-release concept prototype.
     - Quaternion 3 vector display.
     - Quaternion 3D model display.
     - 2 axis graph display (temperature demo).
+
+![v0_1_0-alpha_quaternion_demo.gif](docs/pictures/v0_1_0-alpha_quaternion_demo.gif)
+
+|                          Main Screen                          |                            Quaternion Display                             |                               Quaternion Model Display                                |
+|:-------------------------------------------------------------:|:-------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------:|
+| ![v0_1_0-alpha_home.png](docs/pictures/v0_1_0-alpha_home.png) | ![v0_1_0-alpha_quaternion.png](docs/pictures/v0_1_0-alpha_quaternion.png) | ![v0_1_0-alpha_quaternion_model.png](docs/pictures/v0_1_0-alpha_quaternion_model.png) |
+
+- Pictures and GIF animation show v0.1.0-alpha concept prototype with
+  [nerve_ada_board](https://github.com/danielljeon/nerve_ada_board).
