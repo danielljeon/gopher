@@ -1,5 +1,5 @@
 /*******************************************************************************
- * @file xbee_uart.c
+ * @file xbee_uart.cpp
  * @brief XBee: abstracting Teensy 4.1 Ardunio: UART.
  *******************************************************************************
  */
@@ -23,6 +23,8 @@
 #define OPTIONS_NO_ACK 0x01        // Disable ACK.
 
 #define TRANSMIT_STATUS 0x8B // Transmit Status (0x8B) confirming delivery.
+
+static HardwareSerial &XBEE_HUART = Serial1;
 
 /** Public variables. *********************************************************/
 

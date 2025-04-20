@@ -11,15 +11,6 @@
 
 #include <Arduino.h>
 
-/** STM32 port and pin configs. ***********************************************/
-
-// U(S)ART.
-#define XBEE_HUART Serial1
-
-// GPIO output for reset.
-#define XBEE_NRST_PORT GPIOA
-#define XBEE_NRST_PIN GPIO_PIN_15
-
 /** Definitions. **************************************************************/
 
 #define RX_BUFFER_SIZE 256
