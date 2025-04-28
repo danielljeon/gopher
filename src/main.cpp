@@ -1,19 +1,40 @@
 #include <Arduino.h>
+#include "xbee_uart.h"
 
-void setup()
-{
-  // initialize LED digital pin as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
+const int buttonPin = 4; // Pushbutton
+bool lastButtonState = HIGH;
+
+
+
+void setup() {
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(33, OUTPUT);     // Debug LED
+  digitalWrite(33, LOW);
+
+  Serial.begin(115200);      // USB debug output
+  Serial.println("Test");
+  Serial1.begin(115200);   // XBee UART
+
+  Serial.println("Teensy XBee TX ready.");
 }
 
-void loop()
-{
-  // turn the LED on (HIGH is the voltage level)
-  digitalWrite(LED_BUILTIN, HIGH);
-  // wait for a second
-  delay(1000);
-  // turn the LED off by making the voltage LOW
-  digitalWrite(LED_BUILTIN, LOW);
-   // wait for a second
-  delay(1000);
+void loop() {
+  bool currentState = digitalRead(buttonPin);
+
+  if (currentState == LOW && lastButtonState == HIGH) {
+    delay(20);  // Debounce
+    if (digitalRead(buttonPin) == LOW) {
+      digitalWrite(33, HIGH);
+
+      // ⬇️ Replace this with your XCTU-connected XBee address
+      uint64_t dest = 0x0013A200424974A1; // XBee address
+
+      xbee_send_to(dest, "test");
+
+      delay(500); // Give the radio time
+      digitalWrite(33, LOW);
+    }
+  }
+
+  lastButtonState = currentState;
 }

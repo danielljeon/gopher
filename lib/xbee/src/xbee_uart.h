@@ -46,7 +46,8 @@ extern uint8_t rx_buffer[RX_BUFFER_SIZE]; // Recive buffer.
  * an acknowledgment (ACK) from the recipient. If set to zero, the message is
  * non-critical and no acknowledgment is required.
  */
-void send(uint64_t dest_addr, uint16_t dest_net_addr, const uint8_t *payload,
-          uint16_t payload_size, uint8_t is_critical);
+void xbee_send_to(uint64_t dest_addr, const char* msg);
 
 #endif
+
+
