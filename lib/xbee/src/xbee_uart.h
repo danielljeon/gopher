@@ -41,8 +41,8 @@ extern uint8_t rx_buffer[RX_BUFFER_SIZE]; // Recive buffer.
  *
  * This function prepares messages in the XBee API frame format.
  */
-void xbee_send(uint64_t dest_addr, const char* msg);
+void xbee_send(uint64_t dest_addr, const char *msg);
 
-const uint8_t* xbee_receive_frame(uint16_t* payloadLen);
+const uint8_t *xbee_receive_frame(uint16_t *payloadLen);
 
 #endif
