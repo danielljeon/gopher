@@ -10,7 +10,9 @@
 
 /** Definitions. **************************************************************/
 
-#define XBEE_TX_BUFFER_SIZE 128 // Opinionated conservative value for overhead.
+HardwareSerial &XBEE_UART = Serial1;
+
+#define XBEE_MAX_FRAME_SIZE 128 // Opinionated conservative value for overhead.
 
 #define START_DELIMITER 0x7E
 #define FRAME_TYPE_TX_REQUEST 0x10
@@ -23,8 +25,6 @@
 #define OPTIONS_NO_ACK 0x01        // Disable ACK.
 
 #define TRANSMIT_STATUS 0x8B // Transmit Status (0x8B) confirming delivery.
-
-static HardwareSerial &XBEE_HUART = Serial1;
 
 /** Public variables. *********************************************************/
 
@@ -46,16 +46,12 @@ typedef enum {
 frame_state_t frame_state = WAIT_START_DELIMITER;
 
 // UART (Rx) frame processing variables.
-uint8_t frame_buffer[XBEE_TX_BUFFER_SIZE];
+uint8_t frame_buffer[XBEE_MAX_FRAME_SIZE];
 uint16_t frame_length = 0;
 uint16_t frame_index = 0;
 
-
-// ===== INTERNAL STATE =====
-
-#define MAX_FRAME_SIZE 128
-
-static uint8_t frameBuffer[MAX_FRAME_SIZE];
+// UART (Tx) frame processing variables.
+static uint8_t frameBuffer[XBEE_MAX_FRAME_SIZE];
 static uint16_t length = 0;
 static uint16_t bytesRead = 0;
 static bool inFrame = false;
@@ -214,7 +210,7 @@ void handle_incoming_byte(uint8_t byte) {
 
   case WAIT_LENGTH_LOW:
     frame_length |= byte;
-    if (frame_length > XBEE_TX_BUFFER_SIZE) {
+    if (frame_length > XBEE_MAX_FRAME_SIZE) {
       // Invalid frame length, reset state.
       frame_state = WAIT_START_DELIMITER;
     } else {
@@ -258,97 +254,90 @@ void process_data(const uint8_t *data, uint16_t length) {
 
 /** Public functions. *********************************************************/
 
-void xbee_send_to(uint64_t dest_addr, const char* msg) {
+void xbee_send(uint64_t dest_addr, const char* msg) {
   const uint16_t payload_size = strlen(msg);
-  const uint16_t max_frame_size = 128;
-  uint8_t frame[max_frame_size];
+  uint8_t frame[XBEE_MAX_FRAME_SIZE];
   uint16_t index = 0;
 
-  // Frame delimiter
-  frame[index++] = 0x7E;
+  // 1. Start delimiter.
+  frame[index++] = START_DELIMITER;
 
-  // Reserve length bytes
-  frame[index++] = 0x00;
-  frame[index++] = 0x00;
+  // 2. Reserve two bytes for length (filled in later).
+  index += 2;
 
-  // Frame Type: TX Request
-  frame[index++] = 0x10;
-  frame[index++] = 0x01;
+  // 3. API frame header.
+  frame[index++] = FRAME_TYPE_TX_REQUEST; // Frame Type.
+  frame[index++] = FRAME_ID_WITH_STATUS; // Frame ID.
 
-  // 64-bit dest address (big-endian)
-  for (int i = 7; i >= 0; i--) {
-    frame[index++] = (dest_addr >> (i * 8)) & 0xFF;
+  // 4. 64‑bit destination (big‑endian)
+  for (int8_t i = 7; i >= 0; --i) {
+      frame[index++] = (dest_addr >> (i * 8)) & 0xFF;
   }
 
-  // 16-bit network address (unknown)
+  // 5. 16‑bit network address (unknown).
   frame[index++] = 0xFF;
   frame[index++] = 0xFE;
 
-  // Broadcast radius + options
-  frame[index++] = 0x00;
-  frame[index++] = 0x00;
+  // 6. Broadcast radius and options.
+  frame[index++] = 0x00; // Radius.
+  frame[index++] = 0x00; // Options.
 
-  // Payload
-  for (uint16_t i = 0; i < payload_size; i++) {
-    frame[index++] = msg[i];
+  // 7. RF Data payload.
+  memcpy(&frame[index], msg, payload_size);
+  index += payload_size;
+
+  // 8. Fill in length (number of bytes from frame[3] to frame[index‑1]).
+  uint16_t data_len = index - 3;
+  frame[1] = (data_len >> 8) & 0xFF;
+  frame[2] = data_len & 0xFF;
+
+  // 9. Checksum: 0xFF, (sum of all bytes from frame[3] to frame[index‑1]).
+  uint8_t sum = 0;
+  for (uint16_t i = 3; i < index; ++i) {
+      sum += frame[i];
   }
+  frame[index++] = 0xFF - sum;
 
-  // Length
-  uint16_t length = index - 3;
-  frame[1] = (length >> 8) & 0xFF;
-  frame[2] = length & 0xFF;
-
-  // Checksum
-  uint8_t checksum = 0;
-  for (uint16_t i = 3; i < index; i++) {
-    checksum += frame[i];
-  }
-  checksum = 0xFF - checksum;
-  frame[index++] = checksum;
-
-  // Send
-  Serial1.write(frame, index);
-  Serial.println("Frame sent to XBee.");  // Debug message via USB
+  // 10. Transmit frame.
+  XBEE_UART.write(frame, index);
 }
 
 
-// ===== RECEIVE FUNCTION =====
-
 const uint8_t* xbee_receive_frame(uint16_t* payloadLen) {
-  while (Serial1.available()) {
-    uint8_t b = Serial1.read();
+  // while (XBEE_UART.available()) {
+  //   uint8_t b = XBEE_UART.read();
 
-    if (!inFrame) {
-      if (b == 0x7E) {
-        inFrame = true;
-        bytesRead = 0;
-        length = 0;
-      }
-    } else {
-      if (bytesRead == 0) {
-        length = b << 8;
-      } else if (bytesRead == 1) {
-        length |= b;
-        if (length > MAX_FRAME_SIZE) {
-          inFrame = false;
-          return nullptr;
-        }
-      } else {
-        frameBuffer[bytesRead - 2] = b;
-      }
+  //   if (!inFrame) {
+  //     if (b == 0x7E) {
+  //       inFrame = true;
+  //       bytesRead = 0;
+  //       length = 0;
+  //     }
+  //   } else {
+  //     if (bytesRead == 0) {
+  //       length = b << 8;
+  //     } else if (bytesRead == 1) {
+  //       length |= b;
+  //       if (length > MAX_FRAME_SIZE) {
+  //         inFrame = false;
+  //         return nullptr;
+  //       }
+  //     } else {
+  //       frameBuffer[bytesRead - 2] = b;
+  //     }
 
-      bytesRead++;
+  //     bytesRead++;
 
-      if (bytesRead == length + 3) {
-        inFrame = false;
+  //     if (bytesRead == length + 3) {
+  //       inFrame = false;
 
-        if (length < 1 || frameBuffer[0] != 0x90) return nullptr;
+  //       if (length < 1 || frameBuffer[0] != 0x90) return nullptr;
 
-        *payloadLen = length - 12 - 1; // exclude header and checksum
-        return &frameBuffer[12];       // pointer to payload start
-      }
-    }
-  }
+  //       *payloadLen = length - 12 - 1; // exclude header and checksum
+  //       return &frameBuffer[12];       // pointer to payload start
+  //     }
+  //   }
+  // }
 
-  return nullptr;
+  // return nullptr;
 }
