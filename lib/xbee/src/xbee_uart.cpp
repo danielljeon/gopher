@@ -50,6 +50,16 @@ uint8_t frame_buffer[XBEE_TX_BUFFER_SIZE];
 uint16_t frame_length = 0;
 uint16_t frame_index = 0;
 
+
+// ===== INTERNAL STATE =====
+
+#define MAX_FRAME_SIZE 128
+
+static uint8_t frameBuffer[MAX_FRAME_SIZE];
+static uint16_t length = 0;
+static uint16_t bytesRead = 0;
+static bool inFrame = false;
+
 /** Private functions. ********************************************************/
 
 /**
@@ -248,58 +258,97 @@ void process_data(const uint8_t *data, uint16_t length) {
 
 /** Public functions. *********************************************************/
 
-void send(const uint64_t dest_addr, const uint16_t dest_net_addr,
-          const uint8_t *payload, const uint16_t payload_size,
-          const uint8_t is_critical) {
-  uint8_t buffer[128];
-  xbee_api_buffer_t api_buffer; // Declare the API buffer structure.
+void xbee_send_to(uint64_t dest_addr, const char* msg) {
+  const uint16_t payload_size = strlen(msg);
+  const uint16_t max_frame_size = 128;
+  uint8_t frame[max_frame_size];
+  uint16_t index = 0;
 
-  // Reset buffer to all zeros.
-  for (int i = 0; i < 128; i++) {
-    buffer[i] = 0;
+  // Frame delimiter
+  frame[index++] = 0x7E;
+
+  // Reserve length bytes
+  frame[index++] = 0x00;
+  frame[index++] = 0x00;
+
+  // Frame Type: TX Request
+  frame[index++] = 0x10;
+  frame[index++] = 0x01;
+
+  // 64-bit dest address (big-endian)
+  for (int i = 7; i >= 0; i--) {
+    frame[index++] = (dest_addr >> (i * 8)) & 0xFF;
   }
 
-  // Initialize the API buffer.
-  init_xbee_api_buffer(&api_buffer, buffer, sizeof(buffer));
+  // 16-bit network address (unknown)
+  frame[index++] = 0xFF;
+  frame[index++] = 0xFE;
 
-  // Add frame type (0x10 for Transmit Request).
-  add_byte(&api_buffer, FRAME_TYPE_TX_REQUEST);
+  // Broadcast radius + options
+  frame[index++] = 0x00;
+  frame[index++] = 0x00;
 
-  // Set Frame ID: Non-zero for ACK-required messages.
-  uint8_t frame_id = is_critical ? FRAME_ID_WITH_STATUS : FRAME_ID_NO_STATUS;
-  add_byte(&api_buffer, frame_id);
-
-  // Add 64-bit destination address (big-endian).
-  uint8_t dest_addr_bytes[8] = {
-      (dest_addr >> 56) & 0xFF, (dest_addr >> 48) & 0xFF,
-      (dest_addr >> 40) & 0xFF, (dest_addr >> 32) & 0xFF,
-      (dest_addr >> 24) & 0xFF, (dest_addr >> 16) & 0xFF,
-      (dest_addr >> 8) & 0xFF,  dest_addr & 0xFF};
-  add_bytes(&api_buffer, dest_addr_bytes, 8);
-
-  // Add 16-bit network address (big-endian).
-  add_byte(&api_buffer, (dest_net_addr >> 8) & 0xFF); // High byte.
-  add_byte(&api_buffer, dest_net_addr & 0xFF);        // Low byte.
-
-  // Add broadcast radius (0x00 for maximum hops).
-  add_byte(&api_buffer, BROADCAST_RADIUS);
-
-  // Set options: 0x00 to request ACK, 0x01 to disable ACK.
-  uint8_t options = is_critical ? OPTIONS_WITH_ACK : OPTIONS_NO_ACK;
-  add_byte(&api_buffer, options);
-
-  // Ensure payload fits in the buffer.
-  if (payload_size > (sizeof(buffer) - api_buffer.index)) {
-    // TODO: Add error handling for payload too large.
-    return;
+  // Payload
+  for (uint16_t i = 0; i < payload_size; i++) {
+    frame[index++] = msg[i];
   }
 
-  // Add the payload.
-  add_bytes(&api_buffer, payload, payload_size);
+  // Length
+  uint16_t length = index - 3;
+  frame[1] = (length >> 8) & 0xFF;
+  frame[2] = length & 0xFF;
 
-  // Finalize the API frame (calculate length and checksum).
-  finalize_api_frame(&api_buffer);
+  // Checksum
+  uint8_t checksum = 0;
+  for (uint16_t i = 3; i < index; i++) {
+    checksum += frame[i];
+  }
+  checksum = 0xFF - checksum;
+  frame[index++] = checksum;
 
-  // Send the frame via UART.
-  XBEE_HUART.write(api_buffer.buffer, api_buffer.index);
+  // Send
+  Serial1.write(frame, index);
+  Serial.println("Frame sent to XBee.");  // Debug message via USB
+}
+
+
+// ===== RECEIVE FUNCTION =====
+
+const uint8_t* xbee_receive_frame(uint16_t* payloadLen) {
+  while (Serial1.available()) {
+    uint8_t b = Serial1.read();
+
+    if (!inFrame) {
+      if (b == 0x7E) {
+        inFrame = true;
+        bytesRead = 0;
+        length = 0;
+      }
+    } else {
+      if (bytesRead == 0) {
+        length = b << 8;
+      } else if (bytesRead == 1) {
+        length |= b;
+        if (length > MAX_FRAME_SIZE) {
+          inFrame = false;
+          return nullptr;
+        }
+      } else {
+        frameBuffer[bytesRead - 2] = b;
+      }
+
+      bytesRead++;
+
+      if (bytesRead == length + 3) {
+        inFrame = false;
+
+        if (length < 1 || frameBuffer[0] != 0x90) return nullptr;
+
+        *payloadLen = length - 12 - 1; // exclude header and checksum
+        return &frameBuffer[12];       // pointer to payload start
+      }
+    }
+  }
+
+  return nullptr;
 }
