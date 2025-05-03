@@ -50,6 +50,16 @@ uint8_t frame_buffer[XBEE_TX_BUFFER_SIZE];
 uint16_t frame_length = 0;
 uint16_t frame_index = 0;
 
+
+// ===== INTERNAL STATE =====
+
+#define MAX_FRAME_SIZE 128
+
+static uint8_t frameBuffer[MAX_FRAME_SIZE];
+static uint16_t length = 0;
+static uint16_t bytesRead = 0;
+static bool inFrame = false;
+
 /** Private functions. ********************************************************/
 
 /**
@@ -299,4 +309,46 @@ void xbee_send_to(uint64_t dest_addr, const char* msg) {
   // Send
   Serial1.write(frame, index);
   Serial.println("Frame sent to XBee.");  // Debug message via USB
+}
+
+
+// ===== RECEIVE FUNCTION =====
+
+const uint8_t* xbee_receive_frame(uint16_t* payloadLen) {
+  while (Serial1.available()) {
+    uint8_t b = Serial1.read();
+
+    if (!inFrame) {
+      if (b == 0x7E) {
+        inFrame = true;
+        bytesRead = 0;
+        length = 0;
+      }
+    } else {
+      if (bytesRead == 0) {
+        length = b << 8;
+      } else if (bytesRead == 1) {
+        length |= b;
+        if (length > MAX_FRAME_SIZE) {
+          inFrame = false;
+          return nullptr;
+        }
+      } else {
+        frameBuffer[bytesRead - 2] = b;
+      }
+
+      bytesRead++;
+
+      if (bytesRead == length + 3) {
+        inFrame = false;
+
+        if (length < 1 || frameBuffer[0] != 0x90) return nullptr;
+
+        *payloadLen = length - 12 - 1; // exclude header and checksum
+        return &frameBuffer[12];       // pointer to payload start
+      }
+    }
+  }
+
+  return nullptr;
 }

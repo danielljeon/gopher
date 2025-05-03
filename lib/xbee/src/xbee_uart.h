@@ -48,6 +48,7 @@ extern uint8_t rx_buffer[RX_BUFFER_SIZE]; // Recive buffer.
  */
 void xbee_send_to(uint64_t dest_addr, const char* msg);
 
+const uint8_t* xbee_receive_frame(uint16_t* payloadLen); 
 #endif
 
 
