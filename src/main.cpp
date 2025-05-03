@@ -1,7 +1,7 @@
-#include <Arduino.h>
 #include "xbee_uart.h"
+#include <Arduino.h>
 
-/** DEFINITIONS. */
+/** DEFINITIONS. **************************************************************/
 
 // GPIO pins.
 #define PUSH_BUTTON_PIN 4
@@ -15,10 +15,12 @@
 // XBee 64-bit destination address.
 #define XBEE_DESTINATION 0x0013A200424974A1
 
-/** GLOBAL VARIABLES. */
+/** GLOBAL VARIABLES. *********************************************************/
 
 bool lastButtonState = HIGH;
 bool currentState = HIGH;
+
+/** SETUP. ********************************************************************/
 
 void setup() {
   /** PIN MODES. */
@@ -41,6 +43,8 @@ void setup() {
 
   DEBUG_UART.println("Teensy XBee UART ready.");
 }
+
+/** LOOP. *********************************************************************/
 
 void loop() {
   // On push button press.

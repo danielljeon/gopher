@@ -254,7 +254,7 @@ void process_data(const uint8_t *data, uint16_t length) {
 
 /** Public functions. *********************************************************/
 
-void xbee_send(uint64_t dest_addr, const char* msg) {
+void xbee_send(uint64_t dest_addr, const char *msg) {
   const uint16_t payload_size = strlen(msg);
   uint8_t frame[XBEE_MAX_FRAME_SIZE];
   uint16_t index = 0;
@@ -267,11 +267,11 @@ void xbee_send(uint64_t dest_addr, const char* msg) {
 
   // 3. API frame header.
   frame[index++] = FRAME_TYPE_TX_REQUEST; // Frame Type.
-  frame[index++] = FRAME_ID_WITH_STATUS; // Frame ID.
+  frame[index++] = FRAME_ID_WITH_STATUS;  // Frame ID.
 
   // 4. 64‑bit destination (big‑endian)
   for (int8_t i = 7; i >= 0; --i) {
-      frame[index++] = (dest_addr >> (i * 8)) & 0xFF;
+    frame[index++] = (dest_addr >> (i * 8)) & 0xFF;
   }
 
   // 5. 16‑bit network address (unknown).
@@ -294,7 +294,7 @@ void xbee_send(uint64_t dest_addr, const char* msg) {
   // 9. Checksum: 0xFF, (sum of all bytes from frame[3] to frame[index‑1]).
   uint8_t sum = 0;
   for (uint16_t i = 3; i < index; ++i) {
-      sum += frame[i];
+    sum += frame[i];
   }
   frame[index++] = 0xFF - sum;
 
@@ -303,7 +303,7 @@ void xbee_send(uint64_t dest_addr, const char* msg) {
 }
 
 
-const uint8_t* xbee_receive_frame(uint16_t* payloadLen) {
+const uint8_t *xbee_receive_frame(uint16_t *payloadLen) {
   // while (XBEE_UART.available()) {
   //   uint8_t b = XBEE_UART.read();
 
