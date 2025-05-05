@@ -76,5 +76,5 @@ void loop() {
   lastButtonState = currentState;
 
   // A small delay to avoid flooding the XBee Serial Rx.
-  delay(10);
+  delay(1);
 }
