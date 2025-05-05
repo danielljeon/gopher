@@ -47,16 +47,34 @@ void setup() {
 /** LOOP. *********************************************************************/
 
 void loop() {
+  uint16_t payloadLen;
+  // Attempt to grab a complete RX frame (API 0x90).
+  const uint8_t *payload = xbee_receive_frame(&payloadLen);
+
+  if (payload) { // Valid frame received.
+    // Print it as an ASCII string.
+    Serial.print("Received XBee payload (");
+    Serial.print(payloadLen);
+    Serial.println(" bytes):");
+
+    // Note: payload is NOT null‑terminated, write byte‑wise.
+    for (uint16_t i = 0; i < payloadLen; ++i) {
+      Serial.write(payload[i]);
+    }
+    Serial.println();
+  }
+
   // On push button press.
   currentState = digitalRead(PUSH_BUTTON_PIN);
   if (currentState == LOW && lastButtonState == HIGH) {
     delay(20); // Debounce.
     DEBUG_UART.println("Button pressed");
 
-    if (digitalRead(PUSH_BUTTON_PIN) == LOW) {
-      // Transmit and check success.
-      xbee_send(XBEE_DESTINATION, "test");
-    }
+    // Transmit and check success.
+    xbee_send(XBEE_DESTINATION, "test");
   }
   lastButtonState = currentState;
+
+  // A small delay to avoid flooding the XBee Serial Rx.
+  delay(10);
 }

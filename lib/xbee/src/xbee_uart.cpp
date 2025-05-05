@@ -91,35 +91,53 @@ const uint8_t *xbee_receive_frame(uint16_t *payloadLen) {
     uint8_t b = XBEE_UART.read();
 
     if (!inFrame) {
-      if (b == 0x7E) {
+      if (b == START_DELIMITER) {
         inFrame = true;
         bytesRead = 0;
         length = 0;
       }
     } else {
+      // Read length MSB, LSB, then data and checksum.
       if (bytesRead == 0) {
-        length = b << 8;
+        length = (uint16_t)b << 8;
       } else if (bytesRead == 1) {
         length |= b;
-        if (length > XBEE_MAX_FRAME_SIZE) {
+        // Enforce both upper and lower bounds.
+        if (length > XBEE_MAX_FRAME_SIZE || length < 12) {
           inFrame = false;
           return nullptr;
         }
       } else {
+        // Store both frame‐data and checksum.
         frameBuffer[bytesRead - 2] = b;
       }
 
       bytesRead++;
 
+      // Length + 2 length‐bytes + 1 checksum = total bytes after delimiter.
       if (bytesRead == length + 3) {
         inFrame = false;
 
-        if (length < 1 || frameBuffer[0] != 0x90) {
+        // 1) Verify checksum.
+        uint8_t sum = 0;
+        for (uint16_t i = 0; i < length; ++i) {
+          sum += frameBuffer[i];
+        }
+        uint8_t checksum = frameBuffer[length];
+        if ((uint8_t)(sum + checksum) != 0xFF) { // Bad CRC.
+
           return nullptr;
         }
 
-        *payloadLen = length - 12 - 1; // exclude header and checksum
-        return &frameBuffer[12];       // pointer to payload start
+        // 2) Only accept 0x90 (RX 64‑bit).
+        if (frameBuffer[0] != 0x90) {
+          return nullptr;
+        }
+
+        // 3) Compute and return payload slice.
+        // Header = 1 (type) + 8 (addr64) + 2 (network) + 1 (options) = 12.
+        *payloadLen = length - 12;
+        return &frameBuffer[12];
       }
     }
   }
