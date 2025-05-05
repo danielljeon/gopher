@@ -11,38 +11,23 @@
 
 #include <Arduino.h>
 
-/** Definitions. **************************************************************/
-
-#define RX_BUFFER_SIZE 256
-
-/** Teensy Ardunio pin configurations. ****************************************/
+/** Teensy Arduino pin configurations. ****************************************/
 
 extern HardwareSerial &XBEE_UART;
-
-/** Public types. *************************************************************/
-
-/**
- * @brief Structure to manage the XBee API buffer.
- */
-typedef struct {
-  uint8_t *buffer; // Pointer to the buffer.
-  uint16_t size;   // Total buffer size.
-  uint16_t index;  // Current index in the buffer.
-} xbee_api_buffer_t;
-
-/** Public variables. *********************************************************/
-
-extern uint8_t rx_buffer[RX_BUFFER_SIZE]; // Recive buffer.
 
 /** Public functions. *********************************************************/
 
 /**
- * @brief Send a message over XBee API.
- *
- * This function prepares messages in the XBee API frame format.
+ * @brief Send a message.
  */
 void xbee_send(uint64_t dest_addr, const char *msg);
 
+/**
+ * @brief Receive a message.
+ * 
+ * @return Pointer to message buffer location.
+ * @retval nullptr if no message available.
+ */
 const uint8_t *xbee_receive_frame(uint16_t *payloadLen);
 
 #endif
