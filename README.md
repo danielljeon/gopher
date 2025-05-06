@@ -34,7 +34,7 @@ Developed using [PlatformIO](https://platformio.org/).
 
 ### 2.3 CAN Bus
 
-Python cantools is used to turn the CAN DBC into .h/.c files:
+Python cantools is used to turn the CAN DBC into `.h`/`.c` files:
 
 ```shell
 pip install cantools

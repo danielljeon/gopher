@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file xbee_uart.cpp
- * @brief XBee: abstracting Teensy 4.1 Ardunio: UART.
+ * @brief XBee: abstracting Teensy 4.1 Arduino: UART.
  *******************************************************************************
  */
 
