@@ -11,6 +11,7 @@ Ground station for Nerve controller system.
 - [gopher](#gopher)
   - [1 Overview](#1-overview)
   - [2 Development](#2-development)
+    - [2.3 CAN Bus](#23-can-bus)
   - [3 Release Notes](#3-release-notes)
     - [3.1 v0.1.0-alpha](#31-v010-alpha)
 <!-- TOC -->
@@ -30,6 +31,25 @@ Ground station for Nerve controller system.
 ## 2 Development
 
 Developed using [PlatformIO](https://platformio.org/).
+
+### 2.3 CAN Bus
+
+Python cantools is used to turn the CAN DBC into .h/.c files:
+
+```shell
+pip install cantools
+cantools generate_c_source --use-float gopher.dbc
+```
+
+Executing the above will produce `gopher.h` and `gopher.c`.
+
+Each message in the DBC will be generated utilizing:
+
+```c
+// Example for a message named “ExMessage”.
+void pack_ExMessage(const float physical_values[], uint8_t data_out[8]);
+void decode_ExMessage(const uint8_t data_in[8], float physical_values[]);
+```
 
 ---
 
