@@ -10,6 +10,7 @@
 #include "xbee_uart.h"
 #include <Arduino.h>
 #include <FlexCAN_T4.h>
+#include <SD.h>
 
 /** Public variables. *********************************************************/
 
@@ -125,6 +126,24 @@ void setup() {
   // Init Debug UART.
   DEBUG_UART.begin(115200);
   DEBUG_UART.println("Started Gopher...");
+
+  // Init SDIO.
+  if (!SD.begin(BUILTIN_SDCARD)) {
+    Serial.println("SD not detected!");
+    return;
+  } else {
+    Serial.println("SD ready.");
+  }
+
+  // Init SD card write.
+  File data_file = SD.open("log.txt", FILE_WRITE);
+  if (data_file) {
+    data_file.println("Logging started"); // Write to SD.
+    data_file.close();
+    Serial.println("Wrote to log.txt.");
+  } else {
+    Serial.println("Error opening log.txt.");
+  }
 
   // Init CAN bus.
   can_bus.begin();
