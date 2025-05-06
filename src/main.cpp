@@ -7,6 +7,7 @@
 /** Includes. *****************************************************************/
 
 #include "can_gopher.h"
+#include "configurations.h"
 #include "xbee_uart.h"
 #include <Arduino.h>
 #include <FlexCAN_T4.h>
@@ -27,10 +28,9 @@ bool button_state = HIGH;
 #define TEENSY_LED_PIN 13
 
 // UART pins.
+#ifdef GOPHER_DEBUG_SERIAL
 #define DEBUG_UART Serial
-
-// XBee 64-bit destination address.
-#define XBEE_DESTINATION 0x0013A200424974A1
+#endif
 
 // CAN.
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> can_bus;
@@ -49,17 +49,19 @@ void can_rx(void) {
 
   if (is_valid_rx_can_message) { // Valid CAN message received.
 
-    // Print CAN message information.
-    Serial.print("Received CAN message (");
-    Serial.print(rx_can_msg.id);
-    Serial.print(", ");
-    Serial.print(rx_can_msg.len);
-    Serial.println(" bytes): ");
+// Print CAN message information.
+#ifdef GOPHER_DEBUG_SERIAL
+    DEBUG_UART.print("Received CAN message (");
+    DEBUG_UART.print(rx_can_msg.id);
+    DEBUG_UART.print(", ");
+    DEBUG_UART.print(rx_can_msg.len);
+    DEBUG_UART.println(" bytes): ");
     for (uint16_t i = 0; i < rx_can_msg.len; ++i) {
-      Serial.print(rx_can_msg.buf[i]);
-      Serial.print(" ");
+      DEBUG_UART.print(rx_can_msg.buf[i]);
+      DEBUG_UART.print(" ");
     }
-    Serial.println(); // Next line.
+    DEBUG_UART.println(); // Next line.
+#endif
   }
 }
 
@@ -73,15 +75,18 @@ void xbee_rx(void) {
 
   if (payload) { // Valid frame received.
 
-    // Print XBee message as an ASCII string.
-    Serial.print("Received XBee payload (");
-    Serial.print(xbee_payload_length);
-    Serial.println(" bytes):");
+// Print XBee message as an ASCII string.
+#ifdef GOPHER_DEBUG_SERIAL
+    DEBUG_UART.print("Received XBee payload (");
+    DEBUG_UART.print(xbee_payload_length);
+    DEBUG_UART.println(" bytes):");
+
     for (uint16_t i = 0; i < xbee_payload_length; ++i) {
       // Note: payload is NOT null‑terminated, write byte‑wise.
-      Serial.write(payload[i]);
+      DEBUG_UART.write(payload[i]);
     }
-    Serial.println(); // Next line.
+    DEBUG_UART.println(); // Next line.
+#endif
   }
 }
 
@@ -91,11 +96,13 @@ void xbee_rx(void) {
 void push_button_post_actions(void) {
   CAN_message_t tx_can_msg;
 
-  // Debug message.
+// Debug message.
+#ifdef GOPHER_DEBUG_SERIAL
   DEBUG_UART.println("Button pressed");
+#endif
 
   // Send XBee message.
-  xbee_send(XBEE_DESTINATION, "test");
+  xbee_send(XBEE_DESTINATION_64, "test");
 
   // Form CAN message.
   tx_can_msg.id = CAN_GOPHER_COMMAND_A_FRAME_ID;
@@ -121,18 +128,23 @@ void setup() {
   pinMode(TEENSY_LED_PIN, OUTPUT);
   digitalWrite(TEENSY_LED_PIN, LOW);
 
-  /** INITIALIZATION FUNCTIONS. */
+/** INITIALIZATION FUNCTIONS. */
 
-  // Init Debug UART.
+// Init Debug UART.
+#ifdef GOPHER_DEBUG_SERIAL
   DEBUG_UART.begin(115200);
   DEBUG_UART.println("Started Gopher...");
+#endif
 
   // Init SDIO.
   if (!SD.begin(BUILTIN_SDCARD)) {
-    Serial.println("SD not detected!");
-    return;
+#ifdef GOPHER_DEBUG_SERIAL
+    DEBUG_UART.println("SD not detected!");
+#endif
   } else {
-    Serial.println("SD ready.");
+#ifdef GOPHER_DEBUG_SERIAL
+    DEBUG_UART.println("SD ready.");
+#endif
   }
 
   // Init SD card write.
@@ -140,20 +152,28 @@ void setup() {
   if (data_file) {
     data_file.println("Logging started"); // Write to SD.
     data_file.close();
-    Serial.println("Wrote to log.txt.");
+#ifdef GOPHER_DEBUG_SERIAL
+    DEBUG_UART.println("Wrote to log.txt.");
+#endif
   } else {
-    Serial.println("Error opening log.txt.");
+#ifdef GOPHER_DEBUG_SERIAL
+    DEBUG_UART.println("Error opening log.txt.");
+#endif
   }
 
   // Init CAN bus.
   can_bus.begin();
   can_bus.setBaudRate(500000);
   can_bus.enableFIFO();
+#ifdef GOPHER_DEBUG_SERIAL
   DEBUG_UART.println("CAN bus ready.");
+#endif
 
   // Init XBee UART.
   XBEE_UART.begin(115200);
+#ifdef GOPHER_DEBUG_SERIAL
   DEBUG_UART.println("Teensy XBee UART ready.");
+#endif
 }
 
 /** LOOP. *********************************************************************/
