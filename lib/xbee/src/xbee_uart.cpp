@@ -31,15 +31,15 @@ HardwareSerial &XBEE_UART = Serial1;
 /** Private variables. ********************************************************/
 
 // UART (Rx) frame processing variables.
-static uint8_t frameBuffer[XBEE_MAX_FRAME_SIZE];
+static uint8_t frame_buffer[XBEE_MAX_FRAME_SIZE];
 static uint16_t length = 0;
-static uint16_t bytesRead = 0;
-static bool inFrame = false;
+static uint16_t bytes_read = 0;
+static bool in_frame = false;
 
 /** Public functions. *********************************************************/
 
-void xbee_send(uint64_t dest_addr, const char *msg) {
-  const uint16_t payload_size = strlen(msg);
+void xbee_send(uint64_t destination_address, const char *message) {
+  const uint16_t payload_size = strlen(message);
   uint8_t frame[XBEE_MAX_FRAME_SIZE];
   uint16_t index = 0;
 
@@ -53,9 +53,9 @@ void xbee_send(uint64_t dest_addr, const char *msg) {
   frame[index++] = FRAME_TYPE_TX_REQUEST; // Frame Type.
   frame[index++] = FRAME_ID_WITH_STATUS;  // Frame ID.
 
-  // 4. 64‑bit destination (big‑endian)
+  // 4. 64‑bit destination (big‑endian).
   for (int8_t i = 7; i >= 0; --i) {
-    frame[index++] = (dest_addr >> (i * 8)) & 0xFF;
+    frame[index++] = (destination_address >> (i * 8)) & 0xFF;
   }
 
   // 5. 16‑bit network address (unknown).
@@ -67,7 +67,7 @@ void xbee_send(uint64_t dest_addr, const char *msg) {
   frame[index++] = 0x00; // Options.
 
   // 7. RF Data payload.
-  memcpy(&frame[index], msg, payload_size);
+  memcpy(&frame[index], message, payload_size);
   index += payload_size;
 
   // 8. Fill in length (number of bytes from frame[3] to frame[index‑1]).
@@ -86,58 +86,58 @@ void xbee_send(uint64_t dest_addr, const char *msg) {
   XBEE_UART.write(frame, index);
 }
 
-const uint8_t *xbee_receive_frame(uint16_t *payloadLen) {
+const uint8_t *xbee_receive_frame(uint16_t *payload_length) {
   while (XBEE_UART.available()) {
     uint8_t b = XBEE_UART.read();
 
-    if (!inFrame) {
+    if (!in_frame) {
       if (b == START_DELIMITER) {
-        inFrame = true;
-        bytesRead = 0;
+        in_frame = true;
+        bytes_read = 0;
         length = 0;
       }
     } else {
       // Read length MSB, LSB, then data and checksum.
-      if (bytesRead == 0) {
+      if (bytes_read == 0) {
         length = (uint16_t)b << 8;
-      } else if (bytesRead == 1) {
+      } else if (bytes_read == 1) {
         length |= b;
         // Enforce both upper and lower bounds.
         if (length > XBEE_MAX_FRAME_SIZE || length < 12) {
-          inFrame = false;
+          in_frame = false;
           return nullptr;
         }
       } else {
         // Store both frame‐data and checksum.
-        frameBuffer[bytesRead - 2] = b;
+        frame_buffer[bytes_read - 2] = b;
       }
 
-      bytesRead++;
+      bytes_read++;
 
       // Length + 2 length‐bytes + 1 checksum = total bytes after delimiter.
-      if (bytesRead == length + 3) {
-        inFrame = false;
+      if (bytes_read == length + 3) {
+        in_frame = false;
 
         // 1) Verify checksum.
         uint8_t sum = 0;
         for (uint16_t i = 0; i < length; ++i) {
-          sum += frameBuffer[i];
+          sum += frame_buffer[i];
         }
-        uint8_t checksum = frameBuffer[length];
+        uint8_t checksum = frame_buffer[length];
         if ((uint8_t)(sum + checksum) != 0xFF) { // Bad CRC.
 
           return nullptr;
         }
 
         // 2) Only accept 0x90 (RX 64‑bit).
-        if (frameBuffer[0] != 0x90) {
+        if (frame_buffer[0] != 0x90) {
           return nullptr;
         }
 
         // 3) Compute and return payload slice.
         // Header = 1 (type) + 8 (addr64) + 2 (network) + 1 (options) = 12.
-        *payloadLen = length - 12;
-        return &frameBuffer[12];
+        *payload_length = length - 12;
+        return &frame_buffer[12];
       }
     }
   }

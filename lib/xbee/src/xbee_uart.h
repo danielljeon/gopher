@@ -23,7 +23,7 @@ extern HardwareSerial &XBEE_UART;
  * @param dest_addr  64-bit address of the target XBee module.
  * @param msg        Null‑terminated C‑string containing the ASCII payload.
  */
-void xbee_send(uint64_t dest_addr, const char *msg);
+void xbee_send(uint64_t destination_address, const char *message);
 
 /**
  * @brief Receive a 0x90 (64‑bit) RX frame and return pointer to payload.
@@ -32,6 +32,6 @@ void xbee_send(uint64_t dest_addr, const char *msg);
  * @return Pointer to payload start (in internal buffer), or nullptr if no
  *         complete valid frame is available.
  */
-const uint8_t *xbee_receive_frame(uint16_t *payloadLen);
+const uint8_t *xbee_receive_frame(uint16_t *payload_length);
 
 #endif

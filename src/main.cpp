@@ -13,8 +13,8 @@
 
 /** Public variables. *********************************************************/
 
-bool lastButtonState = HIGH;
-bool currentState = HIGH;
+bool prev_button_state = HIGH;
+bool button_state = HIGH;
 
 /** Teensy Arduino pin configurations. ****************************************/
 
@@ -32,7 +32,7 @@ bool currentState = HIGH;
 #define XBEE_DESTINATION 0x0013A200424974A1
 
 // CAN.
-FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> CANbus;
+FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> can_bus;
 
 /** Private functions. ********************************************************/
 
@@ -44,7 +44,7 @@ void can_rx(void) {
   CAN_message_t rx_can_msg;
 
   // Attempt to grab a complex CAN message.
-  const int is_valid_rx_can_message = CANbus.read(rx_can_msg);
+  const int is_valid_rx_can_message = can_bus.read(rx_can_msg);
 
   if (is_valid_rx_can_message) { // Valid CAN message received.
 
@@ -66,17 +66,17 @@ void can_rx(void) {
  * @brief XBee message receive logic (polling based).
  */
 void xbee_rx(void) {
-  uint16_t payloadLen;
+  uint16_t xbee_payload_length;
   // Attempt to grab a complete RX frame (API 0x90).
-  const uint8_t *payload = xbee_receive_frame(&payloadLen);
+  const uint8_t *payload = xbee_receive_frame(&xbee_payload_length);
 
   if (payload) { // Valid frame received.
 
     // Print XBee message as an ASCII string.
     Serial.print("Received XBee payload (");
-    Serial.print(payloadLen);
+    Serial.print(xbee_payload_length);
     Serial.println(" bytes):");
-    for (uint16_t i = 0; i < payloadLen; ++i) {
+    for (uint16_t i = 0; i < xbee_payload_length; ++i) {
       // Note: payload is NOT null‑terminated, write byte‑wise.
       Serial.write(payload[i]);
     }
@@ -105,7 +105,7 @@ void push_button_post_actions(void) {
   memcpy(tx_can_msg.buf, tx_data, sizeof(tx_data));
 
   // Send CAN message.
-  CANbus.write(tx_can_msg);
+  can_bus.write(tx_can_msg);
 }
 
 /** SETUP. ********************************************************************/
@@ -127,9 +127,9 @@ void setup() {
   DEBUG_UART.println("Started Gopher...");
 
   // Init CAN bus.
-  CANbus.begin();
-  CANbus.setBaudRate(500000);
-  CANbus.enableFIFO();
+  can_bus.begin();
+  can_bus.setBaudRate(500000);
+  can_bus.enableFIFO();
   DEBUG_UART.println("CAN bus ready.");
 
   // Init XBee UART.
@@ -145,12 +145,12 @@ void loop() {
   xbee_rx(); // Handle XBee receive.
 
   // On push button press.
-  currentState = digitalRead(PUSH_BUTTON_PIN);
-  if (currentState == LOW && lastButtonState == HIGH) {
+  button_state = digitalRead(PUSH_BUTTON_PIN);
+  if (button_state == LOW && prev_button_state == HIGH) {
     delay(20);                  // Debounce.
     push_button_post_actions(); // Take actions.
   }
-  lastButtonState = currentState;
+  prev_button_state = button_state;
 
   delay(1); // Small delay to avoid Rx communications flooding.
 }
