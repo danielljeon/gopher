@@ -24,7 +24,7 @@ Ground station for Nerve controller system.
 
 ![gopher.drawio.png](docs/gopher.drawio.png)
 
-> Drawio file here: [gopher.drawio](docs/gopher.drawio)
+> Drawio file here: [gopher.drawio](docs/gopher.drawio).
 
 ---
 
